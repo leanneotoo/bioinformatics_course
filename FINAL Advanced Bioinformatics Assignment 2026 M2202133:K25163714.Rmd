@@ -1,0 +1,208 @@
+---
+title: "Advanced Bioinformatics Assignment 2026"
+author: "K25163714/M2202133"
+date: "2026-04-13"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+# Task 3.1
+Using the sum function and the : operator will create a sequence of numbers from 5 to 55 which should find the sum of all integers between 5 and 55
+```{r}
+sum(5:55)
+```
+
+# Task 3.2
+sumfun() will use the created parameter n and will calculate the sum of the integers from 5 to the value of n set, in this case 10, 20 and 100
+```{r}
+sumfun <- function(n) {sum(5:n)}
+sumfun(10)
+sumfun(20)
+sumfun(100)
+```
+
+# Task 3.3
+I used the for loop to calcuate the first 12 terms of the Fibonnaci sequence which starts with 1,1
+```{r}
+fibonacci <- numeric(12)
+fibonacci[1:2] <- 1
+for (i in 3:12) {
+  fibonacci[i] <- fibonacci[i-1] + fibonacci[i-2]
+}
+fibonacci
+```
+
+# Task 3.4
+ggplot2 is used to create a boxplot looking at miles per gallon (mpg) by the number of gears from the mtcars dataset withe the number of gears shown by the different colours
+```{r}
+library(ggplot2)
+ggplot(mtcars, aes(x = factor(gear), y = mpg, fill = factor(gear))) + geom_boxplot() + labs(title = "MPG by number of gears", x = "Gears", y = "Miles per Gallon")
+```
+
+# Task 3.5
+A linear model was created to show the relationship between speed and breaking distance using the lm() function with speed measured in mph and the distance measured in feet.
+```{r}
+data(cars)
+fit <- lm(dist ~ speed, data = cars)
+summary(fit)
+```
+The slope of the line is 3.932 which means there is around 4 feet of stopping distance for every 1mph of speed with a standard error of 0.4155
+The intercept is -17.579 at a speed of 0 with a standard error of 6.7584
+
+# Task 3.6
+The breaking distance against the speed calculations from Task 3.5 were plotted in a linear fit using ggplot
+```{r}
+ggplot(cars, aes(x = speed, y = dist)) + geom_point() + geom_smooth(method = "lm", se = FALSE, color = "blue") + labs(title = "Breaking distance against Speed", x = "Speed (mph)", y = "Distance (ft)")
+```
+
+# Task 3.7
+The breaking distance will include the reaction time as well as the braking (which is proportional to the speed). This can be modeled as distance to speed and speed^2 which will then allow you to identify the average reaction time of the driver 
+```{r}
+data(cars)
+fit2 <- lm(dist ~ speed + I(speed^2), data = cars)
+summary(fit2)
+```
+Once these calculations are complete and it has been identified using linear regression we can then use ggplot to plot the data points along with the line of best fit for the relationship
+
+```{r}
+ggplot(cars, aes(x = speed, y = dist)) +
+  geom_point() +
+  geom_smooth(method = "lm", formula = y ~ x + I(x^2), se = FALSE, color = "red") +
+  labs(title = "Stopping Distance Model", x = "Speed (mph)", y = "Distance (ft)")
+```
+
+# Task 3.8
+Through this task we can find ot the counts data and add in the sample description for the RNAseq annalysis later down the line.
+```{r,collapse=T,warning=FALSE,eval=TRUE}
+
+all_counts <- read.csv(file = "/Users/LMS_RNAseq_short-master-2023-final/course/exercises/data/exercise1_counts.csv", header = T, row.names = 1)
+head(all_counts)
+
+sam_des <- read.table("/Users/LMS_RNAseq_short-master-2023-final/course/exercises/data/exercise1_sample_description.info", sep = "\t", header = TRUE)
+head(sam_des)
+
+```
+
+# Task 3.9
+We need to create a variable, which we will call col_data, to draw on the sample information, and then use the dimensions function to check the dimensions of this new variable we have created
+```{r,collapse=T,warning=FALSE,eval=TRUE}
+counts_data <- all_counts
+col_data <- data.frame(sample = sam_des$sample, condition = sam_des$condition, batch = sam_des$batch)
+head(col_data)
+
+all(colnames(counts_data) == col_data$name)
+```
+
+# Task 3.10
+The DESeqDataSet object is being created using count data and sample descriptons so that we can do further transformations on the data later
+```{r,collapse=T,warning=FALSE,eval=TRUE}
+library(DESeq2)
+dds <- DESeqDataSetFromMatrix(countData = counts_data, colData = col_data, design =~ condition)
+dds
+```
+# Task 3.11
+Transformation of the data using rlog and vst means that the dependence on the hghly expressed genes will be reduced in the model which will allow for easier comparison through graphical methods such as heatmaps and principal component analysis
+```{r}
+rld <- rlog(dds)
+class(rld)
+rld_counts <- assay(rld)
+class(rld_counts)
+vsd <- varianceStabilizingTransformation(dds)
+class(vsd)
+vsd_counts <- assay(vsd)
+class(vsd_counts)
+```
+
+# Task 3.12
+By creating the heatmap in this step we can see how the most highly expressed genes share patterns and whether these cluster together or are clearly separate. This model will look at the top 40 genes which will keep the heatmap tidy whilst also identifying any strong expression patterns in out dataset and samples.
+```{r}
+library(DESeq2)
+library(pheatmap)
+
+dds <- DESeq(dds)
+select <- order(rowMeans(counts(dds, normalized = TRUE)), decreasing = TRUE)[1:40]
+head(select)
+
+pheatmap(assay(rld)[select, ],
+         scale = "row",
+         clustering_distance_rows = "correlation",
+         clustering_distance_cols = "correlation")
+
+pheatmap(assay(vsd)[select, ],
+         scale = "row",
+         clustering_distance_rows = "correlation",
+         clustering_distance_cols = "correlation")
+```
+
+# Task 3.13
+The sample distance matric will allow us to look at which of the samples in our dataset are the most similar. It can also help us to identify the outliers in the dataset if there is a sample that consistently falls outside of the normal range of data
+
+```{r}
+library(pheatmap)
+
+sampleDists <- dist(t(assay(rld)))
+sampleDistMatrix <- as.matrix(sampleDists)
+rownames(sampleDistMatrix) <- colnames(rld)
+colnames(sampleDistMatrix) <- colnames(rld)
+
+pheatmap(sampleDistMatrix, clustering_distance_rows = sampleDists,
+         clustering_distance_cols = sampleDists)
+
+sampleDists_vsd <- dist(t(assay(vsd)))
+sampleDistMatrix_vsd <- as.matrix(sampleDists_vsd)
+rownames(sampleDistMatrix_vsd) <- colnames(vsd)
+colnames(sampleDistMatrix_vsd) <- colnames(vsd)
+
+pheatmap(sampleDistMatrix_vsd, clustering_distance_rows = sampleDists_vsd,
+         clustering_distance_cols = sampleDists_vsd)
+```
+
+# Task 3.14
+Principal component analysis takes all of the genes and creates a model that captures most of the variation in the dataset using princpal components. Mopst fo the varaince is explained by PC1 and PC2 will then explsin the rest of the variance. This can also help to further idfentify outliers in the data.
+```{r}
+library(ggplot2)
+pca_rld <- plotPCA(rld, intgroup = "condition", returnData = TRUE)
+percentVar_rld <- round(100 * attr(pca_rld, "percentVar"))
+
+ggplot(pca_rld, aes(PC1, PC2, color = condition)) +
+  geom_point(size = 3) +
+  xlab(paste0("PC1: ", percentVar_rld[1], "% variance")) +
+  ylab(paste0("PC2: ", percentVar_rld[2], "% variance")) +
+  coord_fixed()
+```
+# Task 3.15
+rlog and vst transformations both stabilise variance and will alter the datasets differently depending on hoew many samples there are. From these transformations we can create PCA plots to then compsre the variance in the models which can test our data's robustness or if one transformation separates between the data points better
+
+```{r}
+pca_vsd <- plotPCA(vsd, intgroup = "condition", returnData = TRUE)
+percentVar_vsd <- round(100 * attr(pca_vsd, "percentVar"))
+
+ggplot(pca_vsd, aes(PC1, PC2, color = condition)) +
+  geom_point(size = 3) +
+  xlab(paste0("PC1: ", percentVar_vsd[1], "% variance")) +
+  ylab(paste0("PC2: ", percentVar_vsd[2], "% variance")) +
+  coord_fixed()
+```
